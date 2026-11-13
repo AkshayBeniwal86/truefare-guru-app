@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrueFare Guru — Real Flight Prices & Smart Baggage Math</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 780px; margin: 28px auto; padding: 0 16px; background: #f1f5f9; color: #0f172a; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { margin: 0; font-size: 28px; color: #0f766e; }
+    .header p { margin: 6px 0 0; color: #475569; font-size: 15px; }
+    .card { background: white; padding: 24px; border-radius: 14px; box-shadow: 0 4px 16px rgba(15,23,42,0.06); margin-bottom: 20px; }
+    .controls-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+    .tabs { display: flex; gap: 8px; }
+    .tab { padding: 6px 14px; border-radius: 20px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .tab.active { background: #0f766e; color: white; border-color: #0f766e; }
+    select, input, button.search-btn { padding: 11px 13px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 15px; box-sizing: border-box; }
+    input, button.search-btn { width: 100%; }
+    select { background: #f8fafc; font-weight: 600; color: #0f172a; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    button.search-btn { background: #0f766e; color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 14px; font-size: 16px; }
+    button.search-btn:hover { background: #115e59; }
+    .ai-box { background: #f0fdfa; border-left: 4px solid #0f766e; padding: 16px; border-radius: 8px; white-space: pre-wrap; margin-bottom: 20px; line-height: 1.55; }
+    .flight { display: flex; flex-direction: column; gap: 10px; padding: 16px 0; border-bottom: 1px solid #e2e8f0; }
+    .flight:last-child { border-bottom: none; }
+    .badge { background: #ccfbf1; color: #115e59; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .flight-num { background: #e2e8f0; color: #334155; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-family: monospace; font-weight: 600; }
+    .segments { background: #f8fafc; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #334155; line-height: 1.6; }
+    .book-btn { color: white; text-decoration: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 13px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>✈️ TrueFare Guru</h1>
+    <p>Cheapest Economy, Business & First Class deals across Google Flights, Skyscanner, Kiwi & KAYAK.</p>
+  </div>
+
+  <div class="card">
+    <div class="controls-row">
+      <div class="tabs">
+        <div id="tab-oneway" class="tab active" onclick="setTrip('oneway')">One-Way</div>
+        <div id="tab-round" class="tab" onclick="setTrip('round')">Round-Trip</div>
+      </div>
+
+      <select id="cabin">
+        <option value="economy">Economy</option>
+        <option value="premium_economy">Premium Economy</option>
+        <option value="business">Business Class</option>
+        <option value="first">First Class</option>
+      </select>
+    </div>
+
+    <div class="grid">
+      <input id="origin" list="cities" placeholder="From (City or Airport)" value="Amsterdam" />
+      <input id="dest" list="cities" placeholder="To (City or Airport)" value="London" />
+      <input id="date" type="date" value="2026-12-15" />
+      <input id="retDate" type="date" style="display:none;" />
+    </div>
+
+    <datalist id="cities">
+      <option value="Amsterdam"><option value="London"><option value="London Stansted">
+      <option value="London Gatwick"><option value="Paris"><option value="Brussels">
+      <option value="Barcelona"><option value="Madrid"><option value="Lisbon">
+      <option value="Rome"><option value="Milan"><option value="Berlin">
+      <option value="Frankfurt"><option value="Munich"><option value="Zurich">
+      <option value="Vienna"><option value="Dublin"><option value="Istanbul">
+      <option value="Dubai"><option value="Doha"><option value="New York">
+      <option value="Los Angeles"><option value="Toronto"><option value="Tokyo">
+      <option value="Singapore"><option value="Bangkok">
+    </datalist>
+
+    <input id="prefs" placeholder="Preferences (e.g. cheapest nonstop morning flight)" value="cheapest nonstop flight" />
+    <label style="display:block; margin-top:12px; font-size:14px; color:#334155;">
+      <input type="checkbox" id="bag" style="width:auto; margin-right:6px;" /> Bringing a 10kg overhead cabin bag
+    </label>
+    <button class="search-btn" onclick="findFlights()">Ask TrueFare Guru for Best Deal</button>
+  </div>
+
+  <div id="output"></div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+    let isRoundTrip = false;
+
+    function setTrip(type) {
+      isRoundTrip = type === "round";
+      document.getElementById("tab-oneway").classList.toggle("active", !isRoundTrip);
+      document.getElementById("tab-round").classList.toggle("active", isRoundTrip);
+      const retInput = document.getElementById("retDate");
+      retInput.style.display = isRoundTrip ? "block" : "none";
+      if (isRoundTrip && !retInput.value) retInput.value = "2026-12-18";
+    }
+
+    async function findFlights() {
+      const out = document.getElementById("output");
+      out.innerHTML = "<div class='card'>🔍 TrueFare Guru is fetching live flight schedules, flight numbers, and baggage math...</div>";
+
+      const params = new URLSearchParams({
+        origin: document.getElementById("origin").value,
+        destination: document.getElementById("dest").value,
+        departure_date: document.getElementById("date").value,
+        cabin: document.getElementById("cabin").value,
+        preferences: document.getElementById("prefs").value,
+        has_carry_on: document.getElementById("bag").checked
+      });
+
+      if (isRoundTrip && document.getElementById("retDate").value) {
+        params.append("return_date", document.getElementById("retDate").value);
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/best-flight?${params}`);
+        const data = await res.json();
+
+        if (data.error) {
+          out.innerHTML = `<div class="card" style="color:#b45309; background:#fffbeb;">${data.error}</div>`;
+          return;
+        }
+
+        const flightsHtml = (data.raw_results || []).map(f => {
+          const legsHtml = (f.segments || []).map(s =>
+            `<div>✈️ <strong>${s.flight_number}</strong> (${s.airline}): ${s.from} (${s.departs}) → ${s.to} (${s.arrives})</div>`
+          ).join("");
+
+          return `
+            <div class="flight">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                <div>
+                  <strong>${f.airline}</strong>
+                  <span class="flight-num">${f.flight_numbers}</span>
+                  <span class="badge">${f.cabin}</span>
+                  <div style="font-size: 13px; color: #475569; margin-top: 4px;">
+                    ${f.route} · ${f.trip_type} · ${f.stops === 0 ? "Nonstop" : f.stops + " stop(s)"} · Total duration: ${f.duration_mins}m
+                  </div>
+                </div>
+                <div style="font-size: 22px; font-weight: 700; color:#0f766e;">€${f.price}</div>
+              </div>
+              <div class="segments">${legsHtml}</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size:12px; color:#64748b; font-weight:600;">Book this flight on:</span>
+                <a class="book-btn" style="background:#2563eb;" href="${f.booking_links.google_flights}" target="_blank">1. Google Flights</a>
+                <a class="book-btn" style="background:#0770e3;" href="${f.booking_links.skyscanner}" target="_blank">2. Skyscanner</a>
+                <a class="book-btn" style="background:#00a991;" href="${f.booking_links.kiwi}" target="_blank">3. Kiwi.com</a>
+                <a class="book-btn" style="background:#ff690f;" href="${f.booking_links.kayak}" target="_blank">4. KAYAK</a>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        out.innerHTML = `
+          <div class="card">
+            <h3>💡 TrueFare Guru Verdict & Booking Guide</h3>
+            <div class="ai-box">${data.recommendation}</div>
+            <h3>Live Flight Schedules & Direct Booking Links</h3>
+            ${flightsHtml}
+          </div>
+        `;
+      } catch (err) {
+        out.innerHTML = `<div class="card" style="color:#dc2626;">Could not reach TrueFare Guru backend. Make sure your server is running.</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
