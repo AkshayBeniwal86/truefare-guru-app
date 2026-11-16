@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TrueFare Guru — AI Flight Search</title>
+  <meta name="description" content="TrueFare Guru compares live flight prices, checks carry-on baggage options, and finds the best flights with direct booking links." />
   <style>
     * { box-sizing: border-box; }
     body {
@@ -24,11 +25,38 @@
       box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
       margin-bottom: 20px;
     }
+    .trip-tabs {
+      display: inline-flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      gap: 4px;
+    }
+    .trip-tab {
+      margin: 0;
+      width: auto;
+      padding: 8px 18px;
+      background: transparent;
+      color: #334155;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+    .trip-tab:hover { background: rgba(255, 255, 255, 0.5); }
+    .trip-tab.active {
+      background: #ffffff;
+      color: #0284c7;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
       gap: 14px;
     }
+    .hidden { display: none !important; }
     label {
       display: block;
       font-size: 0.82rem;
@@ -51,9 +79,10 @@
       margin-top: 14px;
       font-size: 0.9rem;
       color: #334155;
+      cursor: pointer;
     }
     .checkbox-row input { width: auto; }
-    button {
+    .submit-btn {
       margin-top: 16px;
       width: 100%;
       padding: 12px;
@@ -65,8 +94,8 @@
       border-radius: 8px;
       cursor: pointer;
     }
-    button:hover { background: #0369a1; }
-    button:disabled { background: #94a3b8; cursor: not-allowed; }
+    .submit-btn:hover { background: #0369a1; }
+    .submit-btn:disabled { background: #94a3b8; cursor: not-allowed; }
     #status { margin-top: 12px; font-size: 0.92rem; font-weight: 500; }
     .best-box {
       background: #f0f9ff;
@@ -120,10 +149,15 @@
   <div class="container">
     <header>
       <h1>TrueFare Guru</h1>
-      <p>Live flight search &amp; AI true-fare analyzer</p>
+      <p>Live flight search &amp; AI fare analyzer</p>
     </header>
 
     <div class="card">
+      <div class="trip-tabs" role="tablist" aria-label="Trip type">
+        <button type="button" id="tab-oneway" class="trip-tab active">One-way</button>
+        <button type="button" id="tab-roundtrip" class="trip-tab">Round-trip</button>
+      </div>
+
       <form id="search-form">
         <div class="grid">
           <div>
@@ -138,8 +172,8 @@
             <label for="departure_date">Departure Date</label>
             <input id="departure_date" type="date" required />
           </div>
-          <div>
-            <label for="return_date">Return Date (Optional)</label>
+          <div id="return-date-group" class="hidden">
+            <label for="return_date">Return Date</label>
             <input id="return_date" type="date" />
           </div>
           <div>
@@ -159,10 +193,10 @@
 
         <label class="checkbox-row">
           <input id="has_carry_on" type="checkbox" />
-          Include carry-on bag fee check (+€22 on budget carriers)
+          Include carry-on bag
         </label>
 
-        <button id="search-btn" type="submit">Find True Best Fare</button>
+        <button id="search-btn" class="submit-btn" type="submit">Find Best Fare</button>
       </form>
       <div id="status"></div>
     </div>
@@ -180,6 +214,31 @@
     const resultsContainer = document.getElementById("results");
     const searchBtn = document.getElementById("search-btn");
 
+    const tabOneway = document.getElementById("tab-oneway");
+    const tabRoundtrip = document.getElementById("tab-roundtrip");
+    const returnDateGroup = document.getElementById("return-date-group");
+    const returnDateInput = document.getElementById("return_date");
+    let tripType = "oneway";
+
+    function setTripType(type) {
+      tripType = type;
+      if (type === "roundtrip") {
+        tabRoundtrip.classList.add("active");
+        tabOneway.classList.remove("active");
+        returnDateGroup.classList.remove("hidden");
+        returnDateInput.required = true;
+      } else {
+        tabOneway.classList.add("active");
+        tabRoundtrip.classList.remove("active");
+        returnDateGroup.classList.add("hidden");
+        returnDateInput.required = false;
+        returnDateInput.value = "";
+      }
+    }
+
+    tabOneway.addEventListener("click", () => setTripType("oneway"));
+    tabRoundtrip.addEventListener("click", () => setTripType("roundtrip"));
+
     // Wake up Render free-tier server immediately on page load
     window.addEventListener("DOMContentLoaded", () => {
       fetch(`${API_BASE}/`).catch(() => {});
@@ -191,7 +250,7 @@
       const origin = document.getElementById("origin").value.trim();
       const destination = document.getElementById("destination").value.trim();
       const departure_date = document.getElementById("departure_date").value;
-      const return_date = document.getElementById("return_date").value;
+      const return_date = tripType === "roundtrip" ? returnDateInput.value : "";
       const cabin = document.getElementById("cabin").value;
       const preferences = document.getElementById("preferences").value.trim() || "cheapest overall";
       const has_carry_on = document.getElementById("has_carry_on").checked;
@@ -200,9 +259,13 @@
         showStatus("Please enter origin, destination, and departure date.", "error");
         return;
       }
+      if (tripType === "roundtrip" && !return_date) {
+        showStatus("Please select a return date for a round-trip search.", "error");
+        return;
+      }
 
       setLoading(true);
-      showStatus("Searching live fares & calculating true bag-adjusted prices...", "info");
+      showStatus("Searching live fares & analyzing best option...", "info");
       bestContainer.innerHTML = "";
       resultsContainer.innerHTML = "";
 
@@ -226,7 +289,7 @@
         const linksHtml = renderLinks(data.booking_links);
 
         if (data.error) {
-          showStatus("Live cloud scrape was blocked or returned no seats — use direct search links below:", "info");
+          showStatus("No live seats returned — use direct search links below:", "info");
           bestContainer.innerHTML = `
             <div class="warn-box">
               <strong>Note:</strong> ${escapeHtml(data.error)}
@@ -306,7 +369,7 @@
 
     function setLoading(isLoading) {
       searchBtn.disabled = isLoading;
-      searchBtn.textContent = isLoading ? "Searching..." : "Find True Best Fare";
+      searchBtn.textContent = isLoading ? "Searching..." : "Find Best Fare";
     }
 
     function escapeHtml(str) {
