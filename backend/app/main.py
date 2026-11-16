@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.services.flight_search import search_flights
+from app.services.flight_search import search_flights, build_engine_links, resolve_iata
 from app.agents.ranking import choose_best
 
 app = FastAPI(title="TrueFare Guru API")
@@ -39,5 +39,12 @@ def best_flight(
     preferences: str = "cheapest overall",
     has_carry_on: bool = False,
 ):
+    orig_code = resolve_iata(origin)
+    dest_code = resolve_iata(destination)
+    links = build_engine_links(
+        orig_code, dest_code, departure_date, return_date, cabin.lower()
+    )
     flights = search_flights(origin, destination, departure_date, return_date, cabin)
-    return choose_best(flights, preferences, has_carry_on)
+    result = choose_best(flights, preferences, has_carry_on)
+    result["booking_links"] = links
+    return result
