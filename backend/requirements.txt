@@ -1,4 +1,4 @@
 fastapi
 uvicorn
-fli
+flights
 pydantic
