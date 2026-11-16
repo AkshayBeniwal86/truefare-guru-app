@@ -1,53 +1,234 @@
-<script>
-  const API_BASE = "https://truefare-guru-app.onrender.com";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TrueFare Guru — AI Flight Search</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 24px 16px;
+    }
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.85rem;
+      color: #0f172a;
+    }
+    header p {
+      margin: 6px 0 0;
+      color: #475569;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+    }
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 5px;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 0.9rem;
+      color: #334155;
+    }
+    .checkbox-row input {
+      width: auto;
+    }
+    button {
+      margin-top: 16px;
+      width: 100%;
+      padding: 12px;
+      background: #0284c7;
+      color: #ffffff;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover { background: #0369a1; }
+    button:disabled { background: #94a3b8; cursor: not-allowed; }
+    #status {
+      margin-top: 12px;
+      font-size: 0.92rem;
+      font-weight: 500;
+    }
+    .best-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .best-box h3 {
+      margin: 0 0 8px;
+      color: #0369a1;
+      font-size: 1.05rem;
+    }
+    .flight-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>TrueFare Guru</h1>
+      <p>Live flight search &amp; AI fare recommendation</p>
+    </header>
 
-  const form = document.getElementById("search-form");
-  const statusBox = document.getElementById("status");
-  const resultsContainer = document.getElementById("results");
-  const searchBtn = document.getElementById("search-btn");
+    <div class="card">
+      <form id="search-form">
+        <div class="grid">
+          <div>
+            <label for="origin">Origin (IATA)</label>
+            <input id="origin" type="text" placeholder="AMS" maxlength="3" required />
+          </div>
+          <div>
+            <label for="destination">Destination (IATA)</label>
+            <input id="destination" type="text" placeholder="LHR" maxlength="3" required />
+          </div>
+          <div>
+            <label for="departure_date">Departure Date</label>
+            <input id="departure_date" type="date" required />
+          </div>
+          <div>
+            <label for="return_date">Return Date (Optional)</label>
+            <input id="return_date" type="date" />
+          </div>
+          <div>
+            <label for="cabin">Cabin</label>
+            <select id="cabin">
+              <option value="economy" selected>Economy</option>
+              <option value="premium_economy">Premium Economy</option>
+              <option value="business">Business</option>
+              <option value="first">First</option>
+            </select>
+          </div>
+          <div>
+            <label for="preferences">AI Priority</label>
+            <input id="preferences" type="text" value="cheapest overall" placeholder="cheapest overall" />
+          </div>
+        </div>
 
-  // Wake up Render free-tier server in the background as soon as the page loads
-  window.addEventListener("DOMContentLoaded", () => {
-    fetch(`${API_BASE}/`).catch(() => {});
-  });
+        <label class="checkbox-row">
+          <input id="has_carry_on" type="checkbox" />
+          Include carry-on bag requirement
+        </label>
 
-  if (form) {
+        <button id="search-btn" type="submit">Search Flights</button>
+      </form>
+      <div id="status"></div>
+    </div>
+
+    <div id="best-result"></div>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const API_BASE = "https://truefare-guru-app.onrender.com";
+
+    const form = document.getElementById("search-form");
+    const statusBox = document.getElementById("status");
+    const bestContainer = document.getElementById("best-result");
+    const resultsContainer = document.getElementById("results");
+    const searchBtn = document.getElementById("search-btn");
+
+    // Wake up Render free-tier server immediately when the page loads
+    window.addEventListener("DOMContentLoaded", () => {
+      fetch(`${API_BASE}/`).catch(() => {});
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const origin = document.getElementById("origin").value.trim().toUpperCase();
       const destination = document.getElementById("destination").value.trim().toUpperCase();
-      const date = document.getElementById("date").value;
-      const passengers = parseInt(document.getElementById("passengers")?.value || "1", 10);
-      const cabin = document.getElementById("cabin")?.value || "ECONOMY";
+      const departure_date = document.getElementById("departure_date").value;
+      const return_date = document.getElementById("return_date").value;
+      const cabin = document.getElementById("cabin").value;
+      const preferences = document.getElementById("preferences").value.trim() || "cheapest overall";
+      const has_carry_on = document.getElementById("has_carry_on").checked;
 
-      if (!origin || !destination || !date) {
+      if (!origin || !destination || !departure_date) {
         showStatus("Please enter origin, destination, and departure date.", "error");
         return;
       }
 
       setLoading(true);
-      showStatus("Searching live fares... (First search may take 30-50s if the server is waking up)", "info");
+      showStatus("Searching live fares & analyzing best option... (First search may take 30-50s if Render is waking up)", "info");
+      bestContainer.innerHTML = "";
       resultsContainer.innerHTML = "";
 
       try {
         const params = new URLSearchParams({
           origin,
           destination,
-          date,
-          passengers: passengers.toString(),
-          cabin
+          departure_date,
+          cabin,
+          preferences,
+          has_carry_on: String(has_carry_on)
         });
+        if (return_date) params.set("return_date", return_date);
 
-        const response = await fetch(`${API_BASE}/search?${params.toString()}`);
+        const [searchRes, bestRes] = await Promise.all([
+          fetch(`${API_BASE}/search?${params.toString()}`),
+          fetch(`${API_BASE}/best-flight?${params.toString()}`)
+        ]);
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.detail || `Server responded with status ${response.status}`);
+        if (!searchRes.ok) {
+          const errData = await searchRes.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server responded with status ${searchRes.status}`);
         }
 
-        const data = await response.json();
-        const flights = Array.isArray(data) ? data : (data.flights || data.results || []);
+        const searchData = await searchRes.json();
+        const flights = Array.isArray(searchData) ? searchData : (searchData.flights || searchData.results || []);
+
+        if (bestRes.ok) {
+          const bestData = await bestRes.json();
+          renderBest(bestData);
+        }
 
         if (flights.length === 0) {
           showStatus("No flights found for this route and date.", "info");
@@ -62,57 +243,66 @@
         setLoading(false);
       }
     });
-  }
 
-  function renderFlights(flights) {
-    resultsContainer.innerHTML = flights.map((flight) => {
-      const airline = flight.airline || flight.carrier || "Airline";
-      const price = flight.price !== undefined ? flight.price : "N/A";
-      const currency = flight.currency || "EUR";
-      const departure = flight.departure_time || flight.departure || "--:--";
-      const arrival = flight.arrival_time || flight.arrival || "--:--";
-      const duration = flight.duration || "";
-      const stops = flight.stops === 0 ? "Direct" : (flight.stops ? `${flight.stops} stop(s)` : "");
+    function renderBest(bestData) {
+      if (!bestData) return;
+      const summary = typeof bestData === "string"
+        ? bestData
+        : (bestData.reason || bestData.recommendation || bestData.summary || JSON.stringify(bestData, null, 2));
 
-      return `
-        <div class="flight-card" style="border:1px solid #e2e8f0; border-radius:10px; padding:16px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; background:#fff;">
-          <div>
-            <div style="font-weight:700; font-size:1.05rem;">${escapeHtml(airline)}</div>
-            <div style="color:#475569; margin-top:4px;">${escapeHtml(departure)} &rarr; ${escapeHtml(arrival)}</div>
-            <div style="color:#64748b; font-size:0.875rem; margin-top:2px;">
-              ${[duration, stops].filter(Boolean).map(escapeHtml).join(" • ")}
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:1.25rem; font-weight:700; color:#0f172a;">${escapeHtml(String(currency))} ${escapeHtml(String(price))}</div>
-          </div>
+      bestContainer.innerHTML = `
+        <div class="best-box">
+          <h3>Guru Top Pick</h3>
+          <div style="white-space: pre-wrap; color: #0f172a; font-size: 0.94rem;">${escapeHtml(summary)}</div>
         </div>
       `;
-    }).join("");
-  }
+    }
 
-  function showStatus(message, type) {
-    if (!statusBox) return;
-    const colors = {
-      info: "#0369a1",
-      success: "#15803d",
-      error: "#b91c1c"
-    };
-    statusBox.style.color = colors[type] || "#334155";
-    statusBox.textContent = message;
-  }
+    function renderFlights(flights) {
+      resultsContainer.innerHTML = flights.map((flight) => {
+        const airline = flight.airline || flight.carrier || "Airline";
+        const price = flight.price !== undefined ? flight.price : "N/A";
+        const currency = flight.currency || "EUR";
+        const departure = flight.departure_time || flight.departure || "--:--";
+        const arrival = flight.arrival_time || flight.arrival || "--:--";
+        const duration = flight.duration || "";
+        const stops = flight.stops === 0 ? "Direct" : (flight.stops ? `${flight.stops} stop(s)` : "");
 
-  function setLoading(isLoading) {
-    if (!searchBtn) return;
-    searchBtn.disabled = isLoading;
-    searchBtn.textContent = isLoading ? "Searching..." : "Search Flights";
-  }
+        return `
+          <div class="flight-card">
+            <div>
+              <div style="font-weight: 700; font-size: 1.05rem;">${escapeHtml(airline)}</div>
+              <div style="color: #475569; margin-top: 4px;">${escapeHtml(departure)} &rarr; ${escapeHtml(arrival)}</div>
+              <div style="color: #64748b; font-size: 0.875rem; margin-top: 2px;">
+                ${[duration, stops].filter(Boolean).map(escapeHtml).join(" • ")}
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 1.25rem; font-weight: 700; color: #0f172a;">${escapeHtml(String(currency))} ${escapeHtml(String(price))}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
 
-  function escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-</script>
+    function showStatus(message, type) {
+      const colors = { info: "#0369a1", success: "#15803d", error: "#b91c1c" };
+      statusBox.style.color = colors[type] || "#334155";
+      statusBox.textContent = message;
+    }
+
+    function setLoading(isLoading) {
+      searchBtn.disabled = isLoading;
+      searchBtn.textContent = isLoading ? "Searching..." : "Search Flights";
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>
