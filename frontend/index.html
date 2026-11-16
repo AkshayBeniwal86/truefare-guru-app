@@ -162,11 +162,11 @@
         <div class="grid">
           <div>
             <label for="origin">Origin (IATA or City)</label>
-            <input id="origin" type="text" placeholder="AMS or Amsterdam" required />
+            <input id="origin" list="airports-list" type="text" placeholder="AMS or Amsterdam" required />
           </div>
           <div>
             <label for="destination">Destination (IATA or City)</label>
-            <input id="destination" type="text" placeholder="LHR or London" required />
+            <input id="destination" list="airports-list" type="text" placeholder="LHR or London" required />
           </div>
           <div>
             <label for="departure_date">Departure Date</label>
@@ -198,6 +198,73 @@
 
         <button id="search-btn" class="submit-btn" type="submit">Find Best Fare</button>
       </form>
+
+      <datalist id="airports-list">
+        <option value="Amsterdam (AMS)"></option>
+        <option value="Rotterdam (RTM)"></option>
+        <option value="Eindhoven (EIN)"></option>
+        <option value="Brussels (BRU)"></option>
+        <option value="London Heathrow (LHR)"></option>
+        <option value="London Gatwick (LGW)"></option>
+        <option value="London Stansted (STN)"></option>
+        <option value="Manchester (MAN)"></option>
+        <option value="Edinburgh (EDI)"></option>
+        <option value="Dublin (DUB)"></option>
+        <option value="Paris (CDG)"></option>
+        <option value="Paris Orly (ORY)"></option>
+        <option value="Nice (NCE)"></option>
+        <option value="Lyon (LYS)"></option>
+        <option value="Berlin (BER)"></option>
+        <option value="Frankfurt (FRA)"></option>
+        <option value="Munich (MUC)"></option>
+        <option value="Hamburg (HAM)"></option>
+        <option value="Dusseldorf (DUS)"></option>
+        <option value="Zurich (ZRH)"></option>
+        <option value="Geneva (GVA)"></option>
+        <option value="Vienna (VIE)"></option>
+        <option value="Madrid (MAD)"></option>
+        <option value="Barcelona (BCN)"></option>
+        <option value="Malaga (AGP)"></option>
+        <option value="Palma de Mallorca (PMI)"></option>
+        <option value="Lisbon (LIS)"></option>
+        <option value="Porto (OPO)"></option>
+        <option value="Rome (FCO)"></option>
+        <option value="Milan (MXP)"></option>
+        <option value="Venice (VCE)"></option>
+        <option value="Athens (ATH)"></option>
+        <option value="Istanbul (IST)"></option>
+        <option value="Copenhagen (CPH)"></option>
+        <option value="Stockholm (ARN)"></option>
+        <option value="Oslo (OSL)"></option>
+        <option value="Helsinki (HEL)"></option>
+        <option value="Prague (PRG)"></option>
+        <option value="Warsaw (WAW)"></option>
+        <option value="Budapest (BUD)"></option>
+        <option value="Dubai (DXB)"></option>
+        <option value="Abu Dhabi (AUH)"></option>
+        <option value="Doha (DOH)"></option>
+        <option value="New York (JFK)"></option>
+        <option value="Newark (EWR)"></option>
+        <option value="Los Angeles (LAX)"></option>
+        <option value="San Francisco (SFO)"></option>
+        <option value="Chicago (ORD)"></option>
+        <option value="Miami (MIA)"></option>
+        <option value="Boston (BOS)"></option>
+        <option value="Toronto (YYZ)"></option>
+        <option value="Vancouver (YVR)"></option>
+        <option value="Tokyo (HND)"></option>
+        <option value="Seoul (ICN)"></option>
+        <option value="Singapore (SIN)"></option>
+        <option value="Bangkok (BKK)"></option>
+        <option value="Bali (DPS)"></option>
+        <option value="Hong Kong (HKG)"></option>
+        <option value="Delhi (DEL)"></option>
+        <option value="Mumbai (BOM)"></option>
+        <option value="Bengaluru (BLR)"></option>
+        <option value="Sydney (SYD)"></option>
+        <option value="Melbourne (MEL)"></option>
+      </datalist>
+
       <div id="status"></div>
     </div>
 
@@ -239,7 +306,6 @@
     tabOneway.addEventListener("click", () => setTripType("oneway"));
     tabRoundtrip.addEventListener("click", () => setTripType("roundtrip"));
 
-    // Wake up Render free-tier server immediately on page load
     window.addEventListener("DOMContentLoaded", () => {
       fetch(`${API_BASE}/`).catch(() => {});
     });
